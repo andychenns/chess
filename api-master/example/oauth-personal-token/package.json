@@ -1,0 +1,16 @@
+{
+  "name": "oauth-personal-token-example",
+  "version": "1.0.0",
+  "description": "Lichess OAuth personal token example",
+  "main": "index.js",
+  "keywords": [],
+  "author": "Thibault Duplessis",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  },
+  "scripts": {
+    "start": "node index.js"
+  }
+}

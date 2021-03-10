@@ -9,4 +9,20 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Z9XOFSxKsWuf3vt1
+```{r}
+library(httr)
+library(jsonlite)
+library(chessr)
+library(tidyverse)
+```
+
+```{r}
+res = GET("https://lichess.org/player")
+
+
+rawToChar(res$content)
+
+data = fromJSON(rawToChar(res$content))
+data
+```
+
