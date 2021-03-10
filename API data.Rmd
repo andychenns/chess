@@ -17,7 +17,7 @@ library(tidyverse)
 ```
 
 ```{r}
-res = GET("https://lichess.org/player")
+res = GET("https://lichess.org/player",add_headers('Authorization'= paste0('Bearer ', 'Z9XOFSxKsWuf3vt1')))
 
 
 rawToChar(res$content)
