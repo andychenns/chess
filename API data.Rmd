@@ -72,7 +72,7 @@ read.pgn <- function(con,add.tags = NULL,n.moves = T, extract.moves = 10,last.mo
   # and remove this record from data frame
   if(big.mode) if(r[nrow(r),"Movetext"]=="")   r <- r[-nrow(r),]
   if(!quiet) message(paste0(Sys.time(),", successfully imported ",nrow(r)," games"))
-  if(n.moves||extract.moves)
+  if(n.moves||extract.moves) 
     r$NMoves <- n_moves(r$Movetext)
   if(!quiet) message(paste0(Sys.time(),", N moves computed"))
   if(extract.moves){
