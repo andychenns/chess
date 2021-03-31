@@ -12,17 +12,28 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(httr)
 library(jsonlite)
-library(chessr)
 library(tidyverse)
+library(curl)
+library(dplyr)
 ```
 
 ```{r}
-res = GET("https://lichess.org/player",add_headers('Authorization'= paste0('Bearer ', 'Z9XOFSxKsWuf3vt1')))
+res = GET("https://lichess.org/player",add_headers(c('Authorization'=paste0('Bearer ','Z9XOFSxKsWuf3vt1'),'Accept'='application/vnd.lichess.v3+json')))
 
 
-rawToChar(res$content)
+httr::http_type(res)
 
-data = fromJSON(rawToChar(res$content))
+data <- fromJSON(rawToChar(res$content)) 
+data
+```
+
+```{r}
+res = GET("https://lichess.org/streamer/live",add_headers(c('Authorization'=paste0('Bearer ','Z9XOFSxKsWuf3vt1'),'Accept'='application/vnd.lichess.v3+json')))
+
+
+httr::http_type(res)
+
+data <- fromJSON(rawToChar(res$content)) 
 data
 ```
 
