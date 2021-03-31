@@ -13,12 +13,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(httr)
 library(jsonlite)
 library(tidyverse)
-<<<<<<< HEAD
+
 library(curl)
 library(dplyr)
-=======
 library(bigchess)
->>>>>>> 177ef536bb3447ef4af862c532bf3f840c382623
 ```
 
 ```{r}
