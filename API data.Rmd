@@ -16,14 +16,14 @@ library(tidyverse)
 
 library(curl)
 library(dplyr)
-library(bigchess)
+
 ```
 
 ```{r}
 library(readr)
 df <- read_csv("data/lichess-01-2014.csv", 
     col_types = cols(X1 = col_skip()))
-View(lichess_01_2014)
+
 
 ```
 ```{r}
@@ -40,6 +40,17 @@ ggplot(df, aes(reorder(Result,Result,function(x)-length(x)))) + geom_bar()
 ggplot(df, aes(reorder(`Termination Type`,`Termination Type`,function(x)-length(x)))) + geom_bar()
 
 table(df$`Termination Type`)
+```
+
+
+```{r}
+ggplot(df, aes(df$`Average Rating`)) + geom_area(stat = "bin")
+```
+```{r}
+ggplot(df, aes(df$`Rating Difference`)) + geom_area(stat = "bin", binwidth=10)
+```
+```{r}
+df$moves <- str_count(df$PGN, fixed("."))
 ```
 
 
