@@ -16,28 +16,25 @@ library(tidyverse)
 
 library(curl)
 library(dplyr)
-
 ```
 
 ```{r}
 library(readr)
-df <- read_csv("data/lichess-01-2014.csv", 
-    col_types = cols(X1 = col_skip()))
-
-
+df <- read_csv("data/lichess-01-2014.csv",
+  col_types = cols(X1 = col_skip())
+)
 ```
 ```{r}
-#barplot for game mode
+# barplot for game mode
 
-ggplot(df, aes(reorder(Mode,Mode,function(x)-length(x)))) + geom_bar()
-
+ggplot(df, aes(reorder(Mode, Mode, function(x) -length(x)))) + geom_bar()
 ```
 
 ```{r}
-ggplot(df, aes(reorder(Result,Result,function(x)-length(x)))) + geom_bar()
+ggplot(df, aes(reorder(Result, Result, function(x) -length(x)))) + geom_bar()
 ```
 ```{r}
-ggplot(df, aes(reorder(`Termination Type`,`Termination Type`,function(x)-length(x)))) + geom_bar()
+ggplot(df, aes(reorder(`Termination Type`, `Termination Type`, function(x) -length(x)))) + geom_bar()
 
 table(df$`Termination Type`)
 ```
@@ -47,11 +44,78 @@ table(df$`Termination Type`)
 ggplot(df, aes(df$`Average Rating`)) + geom_area(stat = "bin")
 ```
 ```{r}
-ggplot(df, aes(df$`Rating Difference`)) + geom_area(stat = "bin", binwidth=10)
+ggplot(df, aes(df$`Rating Difference`)) + geom_area(stat = "bin", binwidth = 10)
 ```
+
 ```{r}
 df$moves <- str_count(df$PGN, fixed("."))
 ```
 
 
+```{r}
+ggplot(df, aes(df$`moves`)) + geom_histogram( aes(y=..density..),# Histogram with density instead of count on y-axis
+  binwidth = 1,
+  colour = "black", fill = "white") + 
+  geom_density(alpha = .2, fill = "#FF6666")
+```
+
+```{r}
+ggplot() + 
+  geom_density(aes(df[df$`Termination Type`=="Normal",]$moves), color = "blue") + 
+  geom_density(aes(df[df$`Termination Type`=="Time forfeit",]$moves), color = "red")
+```
+
+```{r}
+ggplot() + 
+  geom_density(aes(df[df$`Mode`=="Bullet",]$moves), color = "blue") + 
+  geom_density(aes(df[df$`Mode`=="Blitz",]$moves), color = "red") +
+  geom_density(aes(df[df$`Mode`=="Classical",]$moves), color = "black") +
+  geom_density(aes(df[df$`Mode`=="Correspondence",]$moves), color = "green")
+```
+
+```{r}
+ggplot() + 
+  geom_density(aes(df[df$`Average Rating`> 750 &df$`Average Rating`<1250,]$moves), color = "blue") + 
+  geom_density(aes(df[df$`Average Rating`<1750 & df$`Average Rating`>=1250,]$moves), color = "red") +
+  geom_density(aes(df[df$`Average Rating`<2250& df$`Average Rating`>=1750,]$moves), color = "black") +
+  geom_density(aes(df[df$`Average Rating`>=2250,]$moves), color = "green")
+```
+
+```{r}
+mean(df[df$`Average Rating`>=2250,]$moves,na.rm = TRUE)
+
+mean(df[df$`Average Rating`<2250& df$`Average Rating`>=1750,]$moves,na.rm = TRUE)
+
+mean(df[df$`Average Rating`<1750 & df$`Average Rating`>=1250,]$moves,na.rm = TRUE)
+
+mean(df[df$`Average Rating`<=1250,]$moves,na.rm = TRUE)
+```
+```{r}
+df$knight_moves <- str_count(df$PGN, fixed("N"))
+df$queen_moves <- str_count(df$PGN, fixed("Q"))
+df$king_moves <- str_count(df$PGN, fixed("K"))
+df$bishop_moves <- str_count(df$PGN, fixed("B"))
+df$rook_moves <- str_count(df$PGN, fixed("R"))
+df$short_castle_moves <- str_count(df$PGN, fixed("O-O "))
+df$long_castle_moves <- str_count(df$PGN, fixed("O-O-O "))
+#assign back to short castle for data cleaning
+df$short_castle_moves <- df$short_castle_moves-df$long_castle_moves
+```
+
+We have a question. How often, likely, when, and which does the pawn promoted to the last row?
+```{r}
+df$pawn_promote <- str_count(df$PGN, fixed("="))
+ggplot() +
+  geom_histogram(aes(df$pawn_promote))
+
+```
+```{r}
+ggplot() +
+  geom_jitter(aes(x=df$moves,y=df$pawn_promote))
+```
+
+Calculate the average total moves for each total promotion
+```{r}
+df2 <- df %>% group_by(pawn_promote) %>% summarise( average_total_move = mean(moves))
+```
 
