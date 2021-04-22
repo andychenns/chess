@@ -116,6 +116,39 @@ ggplot() +
 
 Calculate the average total moves for each total promotion
 ```{r}
-df2 <- df %>% group_by(pawn_promote) %>% summarise( average_total_move = mean(moves))
+df %>% group_by(pawn_promote) %>% summarise( average_total_move = mean(moves))
+```
+
+```{r}
+df$index_equal <- str_locate(df$PGN, "=")
+df$before_equal <- substr(df$PGN,0,df$index_equal +1 )
+
+df$last_dot <- lapply(gregexpr("\\.", df$before_equal), tail, 1)
+
+df$last_space <- lapply(gregexpr("\\ ", substr(df$PGN,0,df$last_dot)), tail, 1)
+
+df$move_promote <- as.integer(substr(df$PGN,  as.integer(df$last_space)+1,as.integer(df$last_dot)-1))
+
+
+```
+
+```{r}
+ggplot() + 
+  geom_histogram(aes(df[!is.na(df$move_promote), ]$move_promote),stat="count",na.rm = TRUE,binwidth = 1)
+
+
+sum <- df %>%
+  group_by(move_promote) %>%
+  summarise(count = n())
+
+sum$move_promote <- as.integer(sum$move_promote)
+
+```
+```{r}
+df$last_move <- df$moves*3-str_count(df$PGN, fixed(" "))
+```
+
+```{r}
+df$pawn_moves <- df$moves*2-df$knight_moves-df$queen_moves-df$king_moves-df$bishop_moves-df$rook_moves-df$short_castle_moves-df$long_castle_moves-(df$last_move-1)
 ```
 
