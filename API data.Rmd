@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(httr)
 library(jsonlite)
 library(tidyverse)
-
+library(reshape2)
 library(curl)
 library(dplyr)
 ```
@@ -150,5 +150,28 @@ df$last_move <- df$moves*3-str_count(df$PGN, fixed(" "))
 
 ```{r}
 df$pawn_moves <- df$moves*2-df$knight_moves-df$queen_moves-df$king_moves-df$bishop_moves-df$rook_moves-df$short_castle_moves-df$long_castle_moves-(df$last_move-1)
+```
+
+```{r}
+#Add a index column
+df$id <- seq.int(nrow(df))
+
+df_long <- melt(df,
+        # ID variables - all the variables to keep but not split apart on
+    id.vars=c("id", "Mode","Average Rating", "Termination Type"),
+        # The source columns
+    measure.vars=c("knight_moves", "queen_moves", "king_moves", "bishop_moves", "rook_moves", "short_castle_moves", "long_castle_moves", "pawn_moves" ),
+        # Name of the destination column that will identify the original
+        # column that the measurement came from
+    variable.name="pieces",
+    value.name="moves"
+)
+```
+
+
+```{r}
+f <- ggplot(df_long, aes(x = pieces, y = moves)) 
+
+f + geom_boxplot(scale = "count") + stat_summary(fun.y=mean, geom="point", shape=23, size=2)
 ```
 
