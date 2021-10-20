@@ -1,0 +1,55 @@
+---
+title: "eval_data_clean"
+author: "LonghaoChen"
+date: "10/19/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readr)
+library(strex)
+```
+
+```{r}
+df <- read_csv("data/lichess-04-2017.csv", 
+    col_types = cols(...1 = col_skip()))
+
+```
+We would want get these information from PGN, the eval, time left for the last move; or the second to the last move if black did not finish
+```{r}
+
+#Filter matches that does not have clock time
+
+df <- filter(df, grepl(pattern = "clk", x=PGN, ignore.case = TRUE))
+
+
+#First thing is to find out # of steps. The strategy is to count number of curly brackets and convert to steps
+
+df$steps <- str_count(df$PGN, fixed("{"))
+
+#The target move is to round down the steps column
+df$target <- floor(df$steps/2)
+
+#Extract subtext
+df$last_move <- str_after_first(df$PGN, fixed(paste0(df$target, ". ")))
+```
+
+
+
+We will take the 1th to 8th digit after clk pattern match as the time left during last move
+```{r}
+#Remove any matches that does not have clock time
+df$white_time_left <- substr(str_after_nth(df$last_move, fixed('clk'),1),1,8)
+```
+
+```{r}
+#Find the clock time for black
+df$black_time_left <- substr(str_after_nth(df$last_move, fixed('clk'),2),1,8)
+```
+
+
