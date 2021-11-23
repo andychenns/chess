@@ -81,4 +81,29 @@ ggplot(df, aes(Result,scale(time_left_difference))) +
 
 Conclusion, if you win the chess game, you are more likely to have more time left.
 
+If we want to know the relationship between the time left difference and the result of game. We could fit a logistic regression and build a model.
+
+```{r}
+#Create a saperate df2 from df
+df2 <- df[df$Result == "White Wins" | df$Result =="Black Wins",c("Result","time_left_difference")]
+df2$Result <- factor(df2$Result)
+mylogit <- glm(Result ~ time_left_difference, data = df2, family = "binomial")
+summary(mylogit)
+```
+
+
 Next, we would like to know how much time people spend on each step across different game mode.
+
+The data comes in with how much time left when each step is completed. To calculate the time spent on each step, we should take the time difference between each move. Then we can group by different game mode, and then summarize the statistics.
+
+Summery or conclusion. We will break the entire match into 3 phases, the opening, middle game and endgame. Usually, the opening phases is the first 10-15 moves of the game. We will take 10th move as a cut between opening and middle. Then we will make a 60% versus 40% cut for the remaining moves. For example, a typical 50 moves match. The opening game is from move 1 to move 10. The middle game is from move 11 to 34 (11 + 0.6 * (50-10)) and the end game is from move 35 to 50.
+
+For each phase, we could recommend the amount of time a player should spend for each move. We could also give an upper limit of time for a single move. Such as, a player should spend at most 15 seconds for a single move in a 5 minutes Classical game. If the time is spent more than 15 seconds, it will increases the likelihood of time forfeit significantly.
+```{r}
+df_statistics <- df_sample %>% group_by(Mode,Stage,Begin_Time) %>%
+      summarise(average_time = mean(time_spent_each_step,na.rm=TRUE))
+```
+
+
+
+
