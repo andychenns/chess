@@ -1,109 +1,158 @@
 ---
-title: "eval_data_clean"
-author: "LonghaoChen"
+title: "Chess Time Usage Report"
+author: "Senh&Longhao"
 date: "10/19/2021"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
+This project started with interests on games in general. We were exploring different games data including Hearthstone & WOW but did not find a good resource of data until we learned about li-chess. Li-Chess provides millions of data on historical chess match games in special format of pgn ready for analysis. We first downloaded and cleaned the data on Jupyter with reference from https://www.kaggle.com/ironicninja/visualizing-chess-game-length-and-piece-movement by Evan Zhang. Then we used R for visualizing data and building models. We were interested on on player performance under time pressure. We referred to move evaluation score and clock time included in PGN match to do our analysis. The first part of this project is to find the relationship between time left in a game and probability of winning the game. We also compiled a report on average amount of time used across different stages of game & game mode. We hope this report will give player a better strategy of time allocation. 
+
+
+Start by loading libraries that we need 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
-
-```{r}
 library(tidyverse)
 library(readr)
 library(strex)
 ```
 
+Load CSV raw data
 ```{r}
-df <- read_csv("data/lichess-04-2017.csv", 
-    col_types = cols(...1 = col_skip()))
+# Data that we extracted and cleaned on Jupyter
+df <- read_csv("data/lichess-04-2017.csv",
+  col_types = cols(...1 = col_skip())
+)
+# Entire move breakdown from PGN
+df_move <- read_csv("data/lichess-04-2017_movebreakdown2.csv",
+  col_types = cols(Clock = col_time(format = "%H:%M:%S"))
+)
 
+# Generate match ID for later joining
+df$ID <- 1:nrow(df) - 1
 ```
-We would want get these information from PGN, the eval, time left for the last move; or the second to the last move if black did not finish
+We are concerned about the time left at the end of the game for each player and who wins the game. To obtain these information, we need to get time left for the last move from PGN; or the second to the last move if black did not finish. Below is the code to get the clock time of last move.
 ```{r}
 
-#Filter matches that does not have clock time
+# Filter matches that does not have clock time
+df <- filter(df, grepl(pattern = "clk", x = PGN, ignore.case = TRUE))
 
-df <- filter(df, grepl(pattern = "clk", x=PGN, ignore.case = TRUE))
-
-
-#First thing is to find out # of steps. The strategy is to count number of curly brackets and convert to steps
-
+# First thing is to find out # of steps. The strategy is to count number of curly brackets and convert to steps. Each move has exactly one curly bracket.
 df$steps <- str_count(df$PGN, fixed("{"))
 
-#The target move is to round down the steps column
-df$target <- floor(df$steps/2)
+# The target move is to round down the steps column. This is to ensure the moves for white and black are equal.
+df$target <- floor(df$steps / 2)
 
-#Extract subtext
+# Extract last move by pattern matching for the target and dot
 df$last_move <- str_after_first(df$PGN, fixed(paste0(df$target, ". ")))
 ```
 
-
-
 We will take the 1th to 8th digit after clk pattern match as the time left during last move
+
 ```{r}
-#Remove any matches that does not have clock time
-df$white_time_left <- substr(str_after_nth(df$last_move, fixed('clk'),1),1,8)
+# Find the clock time for white
+df$white_time_left <- substr(str_after_nth(df$last_move, fixed("clk"), 1), 1, 8)
+
+# Find the clock time for black
+df$black_time_left <- substr(str_after_nth(df$last_move, fixed("clk"), 2), 1, 8)
 ```
 
-```{r}
-#Find the clock time for black
-df$black_time_left <- substr(str_after_nth(df$last_move, fixed('clk'),2),1,8)
-```
-
-Now we need to convert time from character to datetime and find the difference between white time left and black time left
+Now we need to convert time from character to datetime and find the difference between white time left and black time left. If the difference is negative, black has more time left by the end. Otherwise, white has more time left by the end of the game.
 
 ```{r}
-#If the difference is negative, black has more time left by the end. Otherwise, white has more time left by the end of the game.
+# Subtract time left for white by time left for black
 df$time_left_difference <- as.numeric(as.difftime(df$white_time_left, units = "secs")) - as.numeric(as.difftime(df$black_time_left, units = "secs"))
 ```
 
-We would like to calculate the average time left for difference result
+We calculate the average time left for difference result in the summary report.
 ```{r}
-average_time_left <- df %>% group_by(Result) %>%
-      summarise(average_time = mean(time_left_difference,na.rm=TRUE))
+average_time_left <- df %>%
+  group_by(Result) %>%
+  summarise(average_time = mean(time_left_difference, na.rm = TRUE))
 
-#We are also interested in how different game mode play into the effect of time
-average_time_left_2 <- df %>% group_by(Result,Mode) %>%
-      summarise(average_time = mean(time_left_difference,na.rm=TRUE), number_match = n())
+# We are also interested in how different game mode play into the effect of time
+average_time_left_2 <- df %>%
+  group_by(Result, Mode) %>%
+  summarise(average_time = mean(time_left_difference, na.rm = TRUE), number_match = n())
+
+#Print
+print(average_time_left_2)
 ```
 
+From the statistics of summary report, we could see that the winner in average has more time left than the loser. For game mode with longer match time, the winner has more time left at the end of the game. In average, the winner has extra 4, 7, 17, and 23 second time left than the lose under UltraBullet, Bullet, Blitz and Classical game mode.
 
 
-
-Data visualization between match result and time left
-```{r}
-ggplot(df, aes(Result,scale(time_left_difference))) +
-  geom_boxplot()
-
-```
-
-Conclusion, if you win the chess game, you are more likely to have more time left.
+Conclusion, for anyone who wins the chess game, it is more likely for the winner to have more time left.
 
 If we want to know the relationship between the time left difference and the result of game. We could fit a logistic regression and build a model.
 
 ```{r}
-#Create a saperate df2 from df
-df2 <- df[df$Result == "White Wins" | df$Result =="Black Wins",c("Result","time_left_difference")]
+# Create a separate df2 from df to filter out games with draw results or abandoned
+df2 <- df[df$Result == "White Wins" | df$Result == "Black Wins", c("Result", "time_left_difference")]
+
+# Convert string to factor for modeling
 df2$Result <- factor(df2$Result)
+
+# Fit logistic Regression
 mylogit <- glm(Result ~ time_left_difference, data = df2, family = "binomial")
 summary(mylogit)
 ```
 
+From the model we could see a small number for P-value. We will reject the null hypothesis that there is no relationship between the time left at the end of the game and the result of the match. As we can see from the statistics the coefficient of time left is positive, which indicates the likelihood of winning the game will increase if the time left increases.
 
-Next, we would like to know how much time people spend on each step across different game mode.
+Next, we would like to know how much time people spend on each step across different game mode so we can compile a handbook for recommended time allocation across the game.
 
-The data comes in with how much time left when each step is completed. To calculate the time spent on each step, we should take the time difference between each move. Then we can group by different game mode, and then summarize the statistics.
+The data comes in with how much time left when each step is completed. To calculate the time spent on each step, we should take the time left difference between each move. Then we can group by different game mode, and then summarize the statistics.
 
-Summery or conclusion. We will break the entire match into 3 phases, the opening, middle game and endgame. Usually, the opening phases is the first 10-15 moves of the game. We will take 10th move as a cut between opening and middle. Then we will make a 60% versus 40% cut for the remaining moves. For example, a typical 50 moves match. The opening game is from move 1 to move 10. The middle game is from move 11 to 34 (11 + 0.6 * (50-10)) and the end game is from move 35 to 50.
+We will break the entire match into 3 phases, the opening, middle game and endgame. Usually, the opening phases is the first 10-15 moves of the game. We will take 10th move as a cut between opening and middle. Then we will make another cut at 40th move to separate middle game and end game.
 
-For each phase, we could recommend the amount of time a player should spend for each move. We could also give an upper limit of time for a single move. Such as, a player should spend at most 15 seconds for a single move in a 5 minutes Classical game. If the time is spent more than 15 seconds, it will increases the likelihood of time forfeit significantly.
+
 ```{r}
-df_statistics <- df_sample %>% group_by(Mode,Stage,Begin_Time) %>%
-      summarise(average_time = mean(time_spent_each_step,na.rm=TRUE))
+# Drop PGN in order to save space
+df$PGN <- NULL
+
+# Join dataframes by ID
+df_move <- left_join(df_move, df, by = "ID")
+
+# Calculating move number
+df_move %<>%
+  group_by(ID) %>%
+  mutate(move_num = ceiling(row_number() / 2))
+
+# Stage determination: Early stage is before move 10, middle stage between move 10 and 40, and end stage is after move 40
+df_move$Stage <- "None"
+df_move[df_move$move_num <= 10, ]$Stage <- "Early stage"
+df_move[df_move$move_num > 10, ]$Stage <- "Middle stage"
+df_move[df_move$move_num > 40, ]$Stage <- "End stage"
+
+# Calculate time spent difference. 0 for player is white, 1 is black
+df_move %<>%
+  group_by(ID) %>%
+  mutate(player = row_number() %% 2)
+
+# Calculate time use for each move by taking the difference between time left of current move and previous move for both players
+df_move %<>%
+  group_by(ID, player) %>%
+  mutate(time_use = lag(Seconds) - Seconds)
 ```
 
 
+Create a statistics table for time allocation
+```{r}
+df_statistics <- df_move %>%
+  group_by(Mode, Stage, time_control) %>%
+  summarise(average_time = mean(time_use, na.rm = TRUE), num_matches = n_distinct(ID))
 
+print(df_statistics)
+```
+
+As we can see from the table, the game mode that most people played are Classical 10 minutes + 0 second for each move, Bullet 1 minute + 0 second for each move and Blitz 5 minutes + 0 second for each move. For these game mode, for classical the player should take 8 seconds in the early stage, 12 seconds in the middle stage, and 4 seconds in the end stage. For bullet, the player should take 1.2 seconds in the early stage, 1.7 seconds in the middle stage, and 0.7 seconds in the end stage. For blitz, the player should take 4 seconds in the early stage, 7 seconds in the middle stage, and 2 seconds in the end stage.
+
+In summary, the player has less time in the end of the game so they have to make the moves quicker. The middle stage is when the player needs to think and take the longest time. And at the start of the game, it is easier to make the moves and the player should not take too much time to think. Apparently there is a correlation between the time control and average amount of time. A thumb of rule is to take the maximum time allowed in seconds and divide by 100, you will get the approximate time that should spend on early game. For middle stage, take the maximum time and divide by 100 then time 1.5 you will get the average amount of time for each step.
+
+```{r}
+# Save data Optional
+#save(df_statistics, file = "statistics.RData")
+```
 
