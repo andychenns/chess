@@ -1,0 +1,66 @@
+---
+title: "Chess Project Part 2"
+author: "LonghaoChen&SenhWang"
+date: "1/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(DBI)
+library(dbplyr)
+library(dplyr)
+library(RSQLite)
+
+setwd("/Users/longhaochen/chess/chess/Database/")
+db<-dbConnect(SQLite(),dbname="chess_project.db")
+```
+
+
+```{r}
+dbListTables(db)
+
+dbGetQuery(db, 'SELECT * FROM match LIMIT 5')
+
+match <- tbl(db, "Match")
+
+match %>%
+    select(everything())
+
+head(match, 5)
+```
+
+1. What opening are most common? In different level of players?
+
+```{r}
+# We are interested in the most popular opening for each rank of players.
+common_opening <- dbGetQuery(db, 'SELECT COUNT(*), opening, Rank FROM Match GROUP BY opening, Rank')
+
+# First we sorted by most popular opening. We then wanted to know what the most popular opening is for each rank of players so that we can make the best opening recommendations for players to learn.
+common_opening_2 <- match %>%
+  select(ID, opening, Rank) %>%
+  group_by(opening, Rank) %>%
+  summarise(num_opening = n_distinct(ID) )  %>% 
+  ungroup() %>%
+  group_by (Rank) %>% 
+  mutate(popularity = dense_rank(desc(num_opening)))%>% 
+  arrange(desc(num_opening))
+
+print(common_opening_2)
+
+# Translates dplyr function to SQL query
+show_query(match %>%
+  select(ID, opening, Rank) %>%
+  group_by(opening, Rank) %>%
+  summarise(num_opening = n_distinct(ID) )  %>% 
+  ungroup() %>%
+  group_by (Rank) %>% 
+  mutate(popularity = dense_rank(desc(num_opening)))%>% 
+  arrange(desc(num_opening)))
+```
+
+From the results we could see that different level of players have different preference of opening. Pro player like to start with mordern defense whereas low level player prefer Van't K opening.
+
+2. What opening tends to end early (number of moves are low)?
+3. What is the highest Elo in a game?
+4. Give me a table so I can analyze the relationship between time usage (seconds) and eval? My null hypothesis is that if a player spend significant more time on a single move, the evaluation will improve!
+5. What is the winning percentage of white? Also what is the percentage of games that end in draw? In different openings.
