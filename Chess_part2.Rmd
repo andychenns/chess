@@ -10,7 +10,7 @@ library(DBI)
 library(dbplyr)
 library(dplyr)
 library(RSQLite)
-
+library(tidyverse)
 setwd("/Users/longhaochen/chess/chess/Database/")
 db<-dbConnect(SQLite(),dbname="chess_project.db")
 ```
@@ -19,7 +19,7 @@ db<-dbConnect(SQLite(),dbname="chess_project.db")
 ```{r}
 dbListTables(db)
 
-dbGetQuery(db, 'SELECT * FROM match LIMIT 5')
+dbGetQuery(db, 'SELECT * FROM Match LIMIT 5')
 
 match <- tbl(db, "Match")
 
@@ -56,11 +56,29 @@ show_query(match %>%
   group_by (Rank) %>% 
   mutate(popularity = dense_rank(desc(num_opening)))%>% 
   arrange(desc(num_opening)))
-```
 
-From the results we could see that different level of players have different preference of opening. Pro player like to start with mordern defense whereas low level player prefer Van't K opening.
+#Visualize the result
+result<-data.frame(common_opening_2) %>% filter(popularity <= 10)
+
+l <- ggplot(result, aes(Rank, opening))
+l + geom_tile(aes(fill = num_opening))
+```
+There are a few openings that are popular among all rank levels. For example, the Sicilian Defense and Scandinavian Defense: Mieses-Kotroc Variation openings are played by both beginners and experts. However, there also differences that we noticed. We can see that the Van\'t Kruijs Opening is popular among lower-ranked players and not as much among higher-ranked players. The Modern Defense and Indian Game openings are mostly played by experts and not by beginners.
+Rank A: top 25% by Elo rating, Rank B: between 25-50% by Elo, Rank C: bottom 25-50% by Elo, Rank D: bottom 25% by Elo
+num_opening is popularity of opening from greatest to least
 
 2. What opening tends to end early (number of moves are low)?
+
+```{r}
+#First step is to sum up the steps in match_move. Then join the result with match. Last to group by different opening and level of players.
+
+
+
+dbGetQuery(db, 'SELECT AVG(num_moves),COUNT(ID) as num_match,opening,rank FROM (SELECT FLOOR(COUNT(match_move.ID)/2) AS "num_moves", match_move.ID, match.rank, match.opening FROM Match_Move  join match on match_move.id = match.id GROUP BY match_move.id) GROUP BY opening, rank ORDER BY num_match desc')
+
+
+```
+
 3. What is the highest Elo in a game?
 4. Give me a table so I can analyze the relationship between time usage (seconds) and eval? My null hypothesis is that if a player spend significant more time on a single move, the evaluation will improve!
 5. What is the winning percentage of white? Also what is the percentage of games that end in draw? In different openings.
