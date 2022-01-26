@@ -11,20 +11,21 @@ library(dbplyr)
 library(dplyr)
 library(RSQLite)
 library(tidyverse)
+library(reshape2) 
 setwd("/Users/longhaochen/chess/chess/Database/")
-db<-dbConnect(SQLite(),dbname="chess_project.db")
+db <- dbConnect(SQLite(), dbname = "chess_project.db")
 ```
 
 
 ```{r}
 dbListTables(db)
 
-dbGetQuery(db, 'SELECT * FROM Match LIMIT 5')
+dbGetQuery(db, "SELECT * FROM Match LIMIT 5")
 
 match <- tbl(db, "Match")
 
 match %>%
-    select(everything())
+  select(everything())
 
 head(match, 5)
 ```
@@ -33,16 +34,16 @@ head(match, 5)
 
 ```{r}
 # We are interested in the most popular opening for each rank of players.
-common_opening <- dbGetQuery(db, 'SELECT COUNT(*), opening, Rank FROM Match GROUP BY opening, Rank')
+common_opening <- dbGetQuery(db, "SELECT COUNT(*), opening, Rank FROM Match GROUP BY opening, Rank")
 
 # First we sorted by most popular opening. We then wanted to know what the most popular opening is for each rank of players so that we can make the best opening recommendations for players to learn.
 common_opening_2 <- match %>%
   select(ID, opening, Rank) %>%
   group_by(opening, Rank) %>%
-  summarise(num_opening = n_distinct(ID) )  %>% 
+  summarise(num_opening = n_distinct(ID)) %>%
   ungroup() %>%
-  group_by (Rank) %>% 
-  mutate(popularity = dense_rank(desc(num_opening)))%>% 
+  group_by(Rank) %>%
+  mutate(popularity = dense_rank(desc(num_opening))) %>%
   arrange(desc(num_opening))
 
 print(common_opening_2)
@@ -51,14 +52,14 @@ print(common_opening_2)
 show_query(match %>%
   select(ID, opening, Rank) %>%
   group_by(opening, Rank) %>%
-  summarise(num_opening = n_distinct(ID) )  %>% 
+  summarise(num_opening = n_distinct(ID)) %>%
   ungroup() %>%
-  group_by (Rank) %>% 
-  mutate(popularity = dense_rank(desc(num_opening)))%>% 
+  group_by(Rank) %>%
+  mutate(popularity = dense_rank(desc(num_opening))) %>%
   arrange(desc(num_opening)))
 
-#Visualize the result
-result<-data.frame(common_opening_2) %>% filter(popularity <= 10)
+# Visualize the result
+result <- data.frame(common_opening_2) %>% filter(popularity <= 10)
 
 l <- ggplot(result, aes(Rank, opening))
 l + geom_tile(aes(fill = num_opening))
@@ -70,15 +71,48 @@ num_opening is popularity of opening from greatest to least
 2. What opening tends to end early (number of moves are low)?
 
 ```{r}
-#First step is to sum up the steps in match_move. Then join the result with match. Last to group by different opening and level of players.
-
+# First step is to sum up the steps in match_move. Then join the result with match. Last to group by different opening and level of players.
 
 
 dbGetQuery(db, 'SELECT AVG(num_moves),COUNT(ID) as num_match,opening,rank FROM (SELECT FLOOR(COUNT(match_move.ID)/2) AS "num_moves", match_move.ID, match.rank, match.opening FROM Match_Move  join match on match_move.id = match.id GROUP BY match_move.id) GROUP BY opening, rank ORDER BY num_match desc')
 
+# We used dplyr to find the average number of moves an opening takes by rank
+match_move <- tbl(db, "Match_Move")
+move <- inner_join(match %>% select(ID, opening, Rank), match_move %>% group_by(ID) %>% summarise(num_moves = floor(n() / 2)), by = "ID") %>%
+  group_by(opening, Rank) %>%
+  summarise(avg_num_moves = mean(num_moves), num_match = n()) %>%
+  arrange(desc(num_match))
 
+# Translate dplyr function to SQL
+show_query(inner_join(match %>% select(ID, opening, Rank), match_move %>% group_by(ID) %>% summarise(num_moves = floor(n() / 2)), by = "ID") %>% group_by(opening, Rank) %>% summarise(avg_num_moves = mean(num_moves), num_match = n()) %>% arrange(desc(num_match)))
 ```
 
+In order to find out whether the opening of a chess game will influence the number of move, we need to run a chi-square test. Basically, this tests whether the number of moves fall into various intervals is consistent across different opening with a normal distribution.
+
+```{r}
+#Create a df for chi square test
+df <- data.frame(inner_join(match %>% select(ID, opening, Rank), match_move %>% group_by(ID) %>% summarise(num_moves = floor(n() / 2)), by = "ID"))
+
+#Add number of move interval
+df$interval <- floor(df$num_moves/5) + 1
+
+#Cast df to wide format
+df_W = dcast(df, opening~interval) 
+
+#Run chi-square test
+
+chisq <- chisq.test(df_W[,-1])
+chisq
+
+# Expected counts
+round(chisq$expected,2)
+chisq$observed
+```
+
+
 3. What is the highest Elo in a game?
+
 4. Give me a table so I can analyze the relationship between time usage (seconds) and eval? My null hypothesis is that if a player spend significant more time on a single move, the evaluation will improve!
+
+
 5. What is the winning percentage of white? Also what is the percentage of games that end in draw? In different openings.
