@@ -109,10 +109,34 @@ round(chisq$expected,2)
 chisq$observed
 ```
 
-
-3. What is the highest Elo in a game?
-
-4. Give me a table so I can analyze the relationship between time usage (seconds) and eval? My null hypothesis is that if a player spend significant more time on a single move, the evaluation will improve!
+The small P-value indicates that we can reject the null hypothesis that there is no relationship between opening and length of the game.
 
 
-5. What is the winning percentage of white? Also what is the percentage of games that end in draw? In different openings.
+3. Give me a table so I can analyze the relationship between time usage (seconds) and eval? Our null hypothesis is that if a player spend significant more time on a single move, the evaluation will improve!
+
+Evaluation system given from Li-Chess
+```{r}
+dbGetQuery(db, "SELECT CAST(eval AS text), * FROM Match_move where substr(CAST(eval AS text),1,1) == '#'")
+```
+
+1. Create a column to identify whether it is white or black player
+```{r}
+match_move %<>%
+  group_by(ID) %>%
+  mutate(player = row_number() %% 2)
+
+head(match_move, 5)
+```
+
+2. Separate dataframe into two parts, one that uses decimal numbers for evaluation and another one for match count down on number of moves
+
+```{r}
+
+```
+
+3. Calculate the evaluation difference using lag function similar to how we calculate time usage
+4. Visualize both time and eval
+
+
+
+14. What is the winning percentage of white? Also what is the percentage of games that end in draw? In different openings.
