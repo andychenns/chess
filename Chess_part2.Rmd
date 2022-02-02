@@ -128,14 +128,32 @@ match_move %<>%
 head(match_move, 5)
 ```
 
-2. Separate dataframe into two parts, one that uses decimal numbers for evaluation and another one for match count down on number of moves
+2. Strategically, we focus our analysis on the early and mid game. For matches that developed into late stage, we will ignore them. Here the definition of late stage is when one play holds great advantage against the other one. When this happen, the evaluation system will have a "#" tag, which means the number of steps away from check mate. We will filter out any part after the "#" tag is detected.
+
+```{r}
+dbGetQuery(db, "CREATE VIEW hash_only AS SELECT * FROM Match_move where Eval LIKE '#%'")
+dbGetQuery(db, "CREATE VIEW num_only AS SELECT * FROM Match_move where Eval NOT LIKE '#%'")
+
+#Below query creates a column for the step number
+dbGetQuery(db,"SELECT ID, Move, CAST(eval AS text),  Seconds,  row_number() OVER (PARTITION BY ID) GROUPSEQ
+FROM Match_move")
+
+#To continue, we will find the step number where the first "#" is detected and filter by that.
+#To be continue...
+
+dbGetQuery(db, "SELECT * FROM hash_only LIMIT 30")
+```
+
+3. Calculate the evaluation difference using lag function similar to how we calculate time usage
 
 ```{r}
 
 ```
 
-3. Calculate the evaluation difference using lag function similar to how we calculate time usage
 4. Visualize both time and eval
+```{r}
+
+```
 
 
 
