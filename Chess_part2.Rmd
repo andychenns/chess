@@ -131,30 +131,75 @@ head(match_move, 5)
 2. Strategically, we focus our analysis on the early and mid game. For matches that developed into late stage, we will ignore them. Here the definition of late stage is when one play holds great advantage against the other one. When this happen, the evaluation system will have a "#" tag, which means the number of steps away from check mate. We will filter out any part after the "#" tag is detected.
 
 ```{r}
-dbGetQuery(db, "CREATE VIEW hash_only AS SELECT * FROM Match_move where Eval LIKE '#%'")
-dbGetQuery(db, "CREATE VIEW num_only AS SELECT * FROM Match_move where Eval NOT LIKE '#%'")
+#dbGetQuery(db, "CREATE VIEW hash_only AS SELECT * FROM Match_move where Eval LIKE '#%'")
+#dbGetQuery(db, "CREATE VIEW num_only AS SELECT * FROM Match_move where Eval NOT LIKE '#%'")
 
 #Below query creates a column for the step number
-dbGetQuery(db,"SELECT ID, Move, CAST(eval AS text),  Seconds,  row_number() OVER (PARTITION BY ID) GROUPSEQ
-FROM Match_move")
+# dbGetQuery(db,"SELECT ID, Move, CAST(eval AS text),  Seconds,  row_number() OVER (PARTITION BY ID) GROUPSEQ
+# FROM Match_move")
+# 
+# #Create a column for step number on the table
+# match_move %<>%
+#   group_by(ID) %>%
+#   mutate(steps = row_number() )
+# 
+# dbGetQuery(db,"CREATE VIEW match_steps AS SELECT * FROM match_move")
+# match_move_df <- as.data.frame(match_move)
+# dbWriteTable(db, "match_steps", match_move_df)
 
-#To continue, we will find the step number where the first "#" is detected and filter by that.
-#To be continue...
+#To continue, we will find the step number where the first "#" is detected and filter out steps after # in each game.
 
-dbGetQuery(db, "SELECT * FROM hash_only LIMIT 30")
+# match_no_hashtag <- dbGetQuery(db,"SELECT t1.rowid, t1.ID, t1.eval, t1.Seconds, t1.move, t1.clock
+# FROM Match_Move AS t1
+# LEFT OUTER JOIN Match_Move AS t2
+#   ON t1.rowid >= t2.rowid AND t1.ID = t2.ID AND (SELECT SUBSTR(t2.eval, 1, 1) AS ExtractString from Match_Move) = '#'
+# WHERE t2.rowid IS NULL")
+
+#save(match_no_hashtag, file = "match_no_hashtag.RData")
+
 ```
 
 3. Calculate the evaluation difference using lag function similar to how we calculate time usage
 
 ```{r}
+# Calculate time spent difference. 0 for player is white, 1 is black
+match_no_hashtag %<>%
+  group_by(ID) %>%
+  mutate(player = row_number() %% 2)
 
+# Calculate time use for each move by taking the difference between time left of current move and previous move for both players
+match_no_hashtag %<>%
+  group_by(ID, player) %>%
+  mutate(time_use = lag(Seconds) - Seconds)
+
+# Calculate evaluation difference by taking the difference between eval of current move and previous move for both players
+match_no_hashtag %<>%
+  group_by(ID) %>%
+  mutate(eval_dif = lag(Eval) - Eval)
 ```
 
 4. Visualize both time and eval
 ```{r}
+#Start with a scatter point plot
+
+e <- ggplot(match_no_hashtag[1:10000,], aes(time_use, eval_dif)) 
+
+e + geom_point()
 
 ```
+We see from the visualization above that most steps fall between -25 to 25 for eval_dif and 0 to 50 for time_use. There are also negative time_use which means times for players increased after each step. What we can take from this is that if a player thinks for a long time, they are more likely not to make a blunder but also not likely to improve. Also eval_dif is more volatile when a player takes less time because usually that means there is an obvious move after opponent made a mistake.
 
+```{r}
+# Filter out first 10 moves of each game. Beginning of the game is mostly memorized by players so we are not interested.
+match_no_hashtag %<>%
+  group_by(ID) %>%
+  slice(21:n())
 
+# Remove steps with time_use = 1 and eval_dif < 1. We want to narrow down our focus to moves that are more significant in order to give players useful advice when they review their games.
+match_no_hashtag <- filter(match_no_hashtag, time_use != 1 & abs(eval_dif) < 1)
+
+#Next step is to subset the data for steps that player think for a long time (the definition of long time is pending) and analyze the eval_diff
+
+```
 
 14. What is the winning percentage of white? Also what is the percentage of games that end in draw? In different openings.
