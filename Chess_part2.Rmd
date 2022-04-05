@@ -155,7 +155,7 @@ head(match_move, 5)
 #   ON t1.rowid >= t2.rowid AND t1.ID = t2.ID AND (SELECT SUBSTR(t2.eval, 1, 1) AS ExtractString from Match_Move) = '#'
 # WHERE t2.rowid IS NULL")
 
-#save(match_no_hashtag, file = "match_no_hashtag.RData")
+save(match_no_hashtag, file = "match_no_hashtag.RData")
 
 ```
 
@@ -175,7 +175,7 @@ match_no_hashtag %<>%
 # Calculate evaluation difference by taking the difference between eval of current move and previous move for both players
 match_no_hashtag %<>%
   group_by(ID) %>%
-  mutate(eval_dif = lag(Eval) - Eval)
+  mutate(eval_dif = lead(Eval-lag(Eval)))
 ```
 
 4. Visualize both time and eval
@@ -199,6 +199,8 @@ match_no_hashtag %<>%
 match_no_hashtag <- filter(match_no_hashtag, time_use != 1 & abs(eval_dif) < 1)
 
 #Next step is to subset the data for steps that player think for a long time (the definition of long time is pending) and analyze the eval_diff
+
+
 
 ```
 
